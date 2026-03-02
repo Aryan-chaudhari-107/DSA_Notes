@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Insertion Sort Demo</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --panel: #12121a;
+    --border: #1e1e2e;
+    --accent: #00f5c4;
+    --accent2: #ff4d6d;
+    --accent3: #ffd166;
+    --compare: #7b5ea7;
+    --sorted: #00f5c4;
+    --text: #e0e0f0;
+    --muted: #555570;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 30px 20px;
+    overflow-x: hidden;
+  }
+
+  /* Grid bg */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,245,196,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,245,196,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 36px;
+  }
+
+  header h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(2rem, 5vw, 3.2rem);
+    font-weight: 800;
+    letter-spacing: -1px;
+    background: linear-gradient(135deg, var(--accent), #00b4d8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  header p {
+    color: var(--muted);
+    font-size: 0.8rem;
+    margin-top: 6px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 820px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* Array visual */
+  .array-stage {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px 24px 28px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .array-stage::before {
+    content: 'ARRAY';
+    position: absolute;
+    top: 12px; left: 20px;
+    font-size: 0.65rem;
+    letter-spacing: 3px;
+    color: var(--muted);
+  }
+
+  .bars-wrapper {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 10px;
+    height: 180px;
+  }
+
+  .bar-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    transition: transform 0.35s cubic-bezier(.4,0,.2,1);
+  }
+
+  .bar {
+    width: 52px;
+    border-radius: 6px 6px 2px 2px;
+    transition: height 0.35s ease, background 0.25s ease, box-shadow 0.25s ease;
+    position: relative;
+  }
+
+  .bar-val {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text);
+    transition: color 0.25s;
+  }
+
+  .bar-idx {
+    font-size: 0.65rem;
+    color: var(--muted);
+  }
+
+  /* Bar states */
+  .bar.default  { background: linear-gradient(180deg, #2a2a3e, #1e1e30); }
+  .bar.sorted   { background: linear-gradient(180deg, var(--sorted), #00b4a0); box-shadow: 0 0 14px rgba(0,245,196,0.35); }
+  .bar.key      { background: linear-gradient(180deg, var(--accent3), #e8a000); box-shadow: 0 0 18px rgba(255,209,102,0.5); }
+  .bar.comparing { background: linear-gradient(180deg, var(--compare), #5a3d8a); box-shadow: 0 0 14px rgba(123,94,167,0.45); }
+  .bar.shifting { background: linear-gradient(180deg, var(--accent2), #c0003a); box-shadow: 0 0 14px rgba(255,77,109,0.4); }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    justify-content: center;
+    margin-top: 18px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 0.7rem;
+    color: var(--muted);
+  }
+
+  .legend-dot {
+    width: 10px; height: 10px;
+    border-radius: 3px;
+  }
+
+  /* Status message */
+  .status-box {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 20px;
+    font-size: 0.8rem;
+    line-height: 1.7;
+    color: var(--text);
+    min-height: 56px;
+    border-left: 3px solid var(--accent);
+  }
+
+  .status-box span.highlight { color: var(--accent3); font-weight: 700; }
+  .status-box span.key-word  { color: var(--accent);  font-weight: 700; }
+  .status-box span.red       { color: var(--accent2); font-weight: 700; }
+
+  /* Controls */
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+  }
+
+  button {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 11px 22px;
+    border-radius: 8px;
+    border: 1px solid;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.2s;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #0a0a0f;
+    border-color: var(--accent);
+  }
+  .btn-primary:hover { box-shadow: 0 0 18px rgba(0,245,196,0.5); transform: translateY(-1px); }
+  .btn-primary:disabled { opacity: 0.3; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  .btn-secondary {
+    background: transparent;
+    color: var(--text);
+    border-color: var(--border);
+  }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+  .btn-danger {
+    background: transparent;
+    color: var(--accent2);
+    border-color: var(--accent2);
+  }
+  .btn-danger:hover { background: var(--accent2); color: #fff; }
+
+  /* Speed control */
+  .speed-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    justify-content: center;
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 130px;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+  }
+
+  /* Step counter */
+  .stats-row {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .stat-chip {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 18px;
+    font-size: 0.72rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .stat-chip b {
+    color: var(--accent);
+    font-size: 1rem;
+  }
+
+  /* Pseudocode panel */
+  .pseudo-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 22px 24px;
+    font-size: 0.78rem;
+    line-height: 2;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .pseudo-panel::before {
+    content: 'PSEUDOCODE';
+    position: absolute;
+    top: 12px; left: 20px;
+    font-size: 0.62rem;
+    letter-spacing: 3px;
+    color: var(--muted);
+  }
+
+  .pseudo-panel pre {
+    margin-top: 10px;
+    white-space: pre-wrap;
+  }
+
+  .code-line {
+    display: block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    transition: background 0.2s, color 0.2s;
+    color: var(--muted);
+  }
+
+  .code-line.active {
+    background: rgba(0,245,196,0.1);
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  .kw  { color: #ff79c6; }
+  .fn  { color: #50fa7b; }
+  .num { color: var(--accent3); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Insertion Sort</h1>
+  <p>Interactive Step-by-Step Visualizer</p>
+</header>
+
+<div class="container">
+
+  <div class="array-stage">
+    <div class="bars-wrapper" id="bars"></div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#2a2a3e;border:1px solid #3a3a5e"></div>Unsorted</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--accent3)"></div>Key Element</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--compare)"></div>Comparing</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--accent2)"></div>Shifting Right</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--sorted)"></div>Sorted</div>
+    </div>
+  </div>
+
+  <div class="status-box" id="status">Press <b>Play</b> to start or <b>Step</b> to go one step at a time.</div>
+
+  <div class="stats-row">
+    <div class="stat-chip">Comparisons <b id="cmp-count">0</b></div>
+    <div class="stat-chip">Shifts <b id="shift-count">0</b></div>
+    <div class="stat-chip">Pass <b id="pass-num">—</b></div>
+  </div>
+
+  <div class="controls">
+    <button class="btn-secondary" onclick="resetArray()">New Array</button>
+    <button class="btn-primary" id="btn-step" onclick="stepOnce()">Step ▶</button>
+    <button class="btn-primary" id="btn-play" onclick="togglePlay()">Play ▶▶</button>
+    <button class="btn-danger" id="btn-reset" onclick="resetSort()">Reset ↺</button>
+  </div>
+
+  <div class="speed-row">
+    Slow
+    <input type="range" id="speed" min="100" max="1200" value="700" step="100">
+    Fast
+  </div>
+
+  <div class="pseudo-panel">
+    <pre id="pseudo">
+<span class="code-line" id="line0"><span class="kw">for</span> i = <span class="num">1</span> <span class="kw">to</span> n<span class="num">-1</span>:</span>
+<span class="code-line" id="line1">    key = arr[i]</span>
+<span class="code-line" id="line2">    j = i <span class="num">- 1</span></span>
+<span class="code-line" id="line3">    <span class="kw">while</span> j &gt;= <span class="num">0</span> <span class="kw">and</span> arr[j] &gt; key:</span>
+<span class="code-line" id="line4">        arr[j<span class="num">+1</span>] = arr[j]   <span style="color:var(--muted);font-style:italic">// shift right</span></span>
+<span class="code-line" id="line5">        j = j <span class="num">- 1</span></span>
+<span class="code-line" id="line6">    arr[j<span class="num">+1</span>] = key         <span style="color:var(--muted);font-style:italic">// insert key</span></span>
+    </pre>
+  </div>
+
+</div>
+
+<script>
+  // --- State ---
+  let arr = [];
+  let steps = [];
+  let stepIdx = 0;
+  let playing = false;
+  let playTimer = null;
+  let comparisons = 0, shifts = 0;
+
+  const MAX_VAL = 90;
+  const BAR_COUNT = 8;
+
+  function randArray() {
+    const a = [];
+    const used = new Set();
+    while (a.length < BAR_COUNT) {
+      const v = Math.floor(Math.random() * (MAX_VAL - 10)) + 10;
+      if (!used.has(v)) { used.add(v); a.push(v); }
+    }
+    return a;
+  }
+
+  // --- Build all steps upfront ---
+  function buildSteps(input) {
+    const a = [...input];
+    const s = [];
+    const n = a.length;
+
+    // Initial state
+    s.push({ arr: [...a], states: new Array(n).fill('default'), sortedUpTo: -1, msg: `Array has <span class="highlight">${n}</span> elements. Starting insertion sort from index 1.`, line: 0 });
+
+    for (let i = 1; i < n; i++) {
+      const key = a[i];
+
+      // Pick key
+      const st0 = new Array(n).fill('default');
+      for (let k = 0; k < i; k++) st0[k] = 'sorted';
+      st0[i] = 'key';
+      s.push({ arr: [...a], states: st0, sortedUpTo: i-1, msg: `<span class="key-word">Pass ${i}:</span> Picked key = <span class="highlight">${key}</span> at index ${i}. Will insert into sorted left portion.`, line: 1, cmp: false, shift: false });
+
+      let j = i - 1;
+
+      // j = i-1 line
+      const st1 = [...st0];
+      s.push({ arr: [...a], states: [...st1], sortedUpTo: i-1, msg: `Set j = ${j}. Will compare key <span class="highlight">${key}</span> with arr[${j}] = <span class="highlight">${a[j]}</span>.`, line: 2 });
+
+      while (j >= 0 && a[j] > key) {
+        // Compare
+        const stC = new Array(n).fill('default');
+        for (let k = 0; k < i; k++) stC[k] = 'sorted';
+        stC[i] = 'key';
+        stC[j] = 'comparing';
+        s.push({ arr: [...a], states: stC, sortedUpTo: i-1, msg: `Comparing arr[${j}] = <span class="highlight">${a[j]}</span> > key <span class="highlight">${key}</span>? <span class="key-word">YES</span> → shift right.`, line: 3, cmp: true });
+
+        // Shift
+        a[j + 1] = a[j];
+        const stS = new Array(n).fill('default');
+        for (let k = 0; k < i; k++) stS[k] = 'sorted';
+        stS[j+1] = 'shifting';
+        stS[j] = 'key'; // placeholder hole
+        s.push({ arr: [...a], states: stS, sortedUpTo: i-1, msg: `Shifted <span class="red">${a[j+1]}</span> from index ${j} to index ${j+1}.`, line: 4, shift: true });
+
+        j--;
+        if (j >= 0) {
+          const stN = [...stS];
+          s.push({ arr: [...a], states: stN, sortedUpTo: i-1, msg: `j = ${j}. Compare arr[${j}] = <span class="highlight">${a[j]}</span> with key <span class="highlight">${key}</span>...`, line: 5 });
+        }
+      }
+
+      // Check if no shift needed
+      if (j === i - 1) {
+        const stNo = new Array(n).fill('default');
+        for (let k = 0; k < i; k++) stNo[k] = 'sorted';
+        stNo[i] = 'key';
+        if (j >= 0) stNo[j] = 'comparing';
+        s.push({ arr: [...a], states: stNo, sortedUpTo: i-1, msg: j >= 0 ? `arr[${j}] = <span class="highlight">${a[j]}</span> ≤ key <span class="highlight">${key}</span>. <span class="key-word">No shift needed.</span>` : `j < 0, key is smallest. Insert at index 0.`, line: 3, cmp: true });
+      } else if (j >= 0) {
+        // last failed compare
+        const stLast = new Array(n).fill('default');
+        for (let k = 0; k < i; k++) stLast[k] = 'sorted';
+        stLast[j] = 'comparing';
+        s.push({ arr: [...a], states: stLast, sortedUpTo: i-1, msg: `arr[${j}] = <span class="highlight">${a[j]}</span> ≤ key <span class="highlight">${key}</span>. Stop shifting.`, line: 3, cmp: true });
+      }
+
+      // Insert key
+      a[j + 1] = key;
+      const stI = new Array(n).fill('default');
+      for (let k = 0; k <= i; k++) stI[k] = 'sorted';
+      stI[j+1] = 'key';
+      s.push({ arr: [...a], states: stI, sortedUpTo: i, msg: `<span class="key-word">Inserted</span> key <span class="highlight">${key}</span> at index ${j+1}. Left portion [0..${i}] is now sorted.`, line: 6 });
+    }
+
+    // Done
+    const doneStates = new Array(n).fill('sorted');
+    s.push({ arr: [...a], states: doneStates, sortedUpTo: n-1, msg: `<span class="key-word">✅ Sorting Complete!</span> All <span class="highlight">${n}</span> elements are sorted.`, line: -1, done: true });
+
+    return s;
+  }
+
+  // --- Render ---
+  function render(step) {
+    const { arr, states } = step;
+    const bw = document.getElementById('bars');
+    bw.innerHTML = '';
+    const maxV = Math.max(...arr);
+
+    arr.forEach((v, i) => {
+      const col = document.createElement('div');
+      col.className = 'bar-col';
+
+      const bar = document.createElement('div');
+      bar.className = `bar ${states[i]}`;
+      bar.style.height = `${Math.round((v / maxV) * 150) + 20}px`;
+
+      const val = document.createElement('div');
+      val.className = 'bar-val';
+      val.textContent = v;
+
+      const idx = document.createElement('div');
+      idx.className = 'bar-idx';
+      idx.textContent = `[${i}]`;
+
+      col.appendChild(val);
+      col.appendChild(bar);
+      col.appendChild(idx);
+      bw.appendChild(col);
+    });
+
+    document.getElementById('status').innerHTML = step.msg;
+
+    // Highlight pseudocode line
+    document.querySelectorAll('.code-line').forEach((el, i) => {
+      el.classList.toggle('active', i === step.line);
+    });
+
+    // Stats
+    if (step.cmp) comparisons++;
+    if (step.shift) shifts++;
+    document.getElementById('cmp-count').textContent = comparisons;
+    document.getElementById('shift-count').textContent = shifts;
+
+    const pass = step.sortedUpTo >= 0 ? step.sortedUpTo + 1 : '—';
+    document.getElementById('pass-num').textContent = pass;
+
+    if (step.done) {
+      stopPlay();
+      document.getElementById('btn-play').textContent = 'Done ✓';
+      document.getElementById('btn-play').disabled = true;
+      document.getElementById('btn-step').disabled = true;
+    }
+  }
+
+  function stepOnce() {
+    if (stepIdx < steps.length) {
+      render(steps[stepIdx]);
+      stepIdx++;
+    }
+  }
+
+  function togglePlay() {
+    if (playing) {
+      stopPlay();
+    } else {
+      startPlay();
+    }
+  }
+
+  function startPlay() {
+    playing = true;
+    document.getElementById('btn-play').textContent = 'Pause ⏸';
+    runPlay();
+  }
+
+  function stopPlay() {
+    playing = false;
+    clearTimeout(playTimer);
+    const btn = document.getElementById('btn-play');
+    if (btn.textContent !== 'Done ✓') btn.textContent = 'Play ▶▶';
+  }
+
+  function runPlay() {
+    if (!playing) return;
+    if (stepIdx >= steps.length) { stopPlay(); return; }
+    render(steps[stepIdx]);
+    stepIdx++;
+    const speed = 1300 - parseInt(document.getElementById('speed').value);
+    playTimer = setTimeout(runPlay, speed);
+  }
+
+  function resetSort() {
+    stopPlay();
+    stepIdx = 0;
+    comparisons = 0; shifts = 0;
+    document.getElementById('cmp-count').textContent = 0;
+    document.getElementById('shift-count').textContent = 0;
+    document.getElementById('pass-num').textContent = '—';
+    document.getElementById('btn-play').textContent = 'Play ▶▶';
+    document.getElementById('btn-play').disabled = false;
+    document.getElementById('btn-step').disabled = false;
+    document.querySelectorAll('.code-line').forEach(el => el.classList.remove('active'));
+    render({ arr, states: new Array(arr.length).fill('default'), msg: 'Press <b>Play</b> to start or <b>Step</b> to go one step at a time.', line: -1 });
+  }
+
+  function resetArray() {
+    arr = randArray();
+    steps = buildSteps(arr);
+    resetSort();
+  }
+
+  // Init
+  resetArray();
+</script>
+</body>
+</html>
