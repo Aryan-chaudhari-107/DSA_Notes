@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quick Sort Visualizer</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Outfit:wght@400;600;800&display=swap');
+
+:root {
+  --bg: #0b0c10;
+  --surface: #13141a;
+  --card: #16171f;
+  --border: #1f2130;
+  --pivot: #ff6b35;
+  --left: #6c63ff;
+  --right: #38f9d7;
+  --swap: #ff4d6d;
+  --sorted: #43e97b;
+  --active: #ffd460;
+  --text: #dde3f0;
+  --muted: #454868;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Outfit', sans-serif;
+  min-height: 100vh;
+  padding: 28px 16px 60px;
+  display: flex; flex-direction: column; align-items: center;
+}
+
+body::before {
+  content:'';
+  position:fixed; inset:0;
+  background:
+    radial-gradient(ellipse at 15% 30%, rgba(255,107,53,0.06) 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 70%, rgba(108,99,255,0.06) 0%, transparent 55%);
+  pointer-events:none;
+}
+
+header { text-align:center; margin-bottom:28px; }
+header h1 {
+  font-weight:800; font-size:clamp(2rem,5vw,3rem);
+  background: linear-gradient(135deg, var(--pivot), var(--active));
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+}
+header p { color:var(--muted); font-size:0.75rem; letter-spacing:2px; text-transform:uppercase; margin-top:4px; }
+
+.wrap { width:100%; max-width:900px; display:flex; flex-direction:column; gap:16px; }
+
+/* Card generic */
+.card {
+  background:var(--card); border:1px solid var(--border); border-radius:14px; padding:20px 22px;
+}
+.card-label {
+  font-size:0.62rem; letter-spacing:3px; color:var(--muted); text-transform:uppercase; margin-bottom:12px;
+}
+
+/* HOW IT WORKS */
+.how-grid {
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:12px;
+}
+.how-step {
+  background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px;
+}
+.how-step .num {
+  font-size:1.4rem; font-weight:800; margin-bottom:6px;
+}
+.how-step p { font-size:0.78rem; color:var(--muted); line-height:1.7; }
+.how-step b { color:var(--text); }
+
+/* BARS */
+.bars-area {
+  display:flex; align-items:flex-end; justify-content:center;
+  gap:7px; height:200px; padding: 0 4px;
+}
+
+.bar-wrap {
+  display:flex; flex-direction:column; align-items:center; gap:5px;
+  transition: transform 0.3s ease;
+}
+
+.bar {
+  width:48px; border-radius:6px 6px 2px 2px;
+  transition: height 0.3s ease, background 0.25s ease, box-shadow 0.25s ease;
+}
+
+.bar-val { font-size:0.78rem; font-weight:700; transition:color 0.25s; }
+.bar-idx { font-size:0.6rem; color:var(--muted); }
+
+.bar.unsorted  { background:linear-gradient(180deg,#2a2d40,#1c1e2a); }
+.bar.pivot     { background:linear-gradient(180deg,var(--pivot),#c44f1f); box-shadow:0 0 20px rgba(255,107,53,0.5); }
+.bar.lzone     { background:linear-gradient(180deg,var(--left),#4a42cc); box-shadow:0 0 12px rgba(108,99,255,0.35); }
+.bar.rzone     { background:linear-gradient(180deg,var(--right),#1ab8a0); box-shadow:0 0 12px rgba(56,249,215,0.3); }
+.bar.swapping  { background:linear-gradient(180deg,var(--swap),#b0002a); box-shadow:0 0 16px rgba(255,77,109,0.5); }
+.bar.sorted    { background:linear-gradient(180deg,var(--sorted),#22a85a); box-shadow:0 0 10px rgba(67,233,123,0.25); }
+.bar.subarray  { background:linear-gradient(180deg,var(--active),#c9a000); }
+
+/* Legend */
+.legend { display:flex; flex-wrap:wrap; gap:12px; justify-content:center; margin-top:14px; }
+.leg { display:flex; align-items:center; gap:6px; font-size:0.68rem; color:var(--muted); }
+.dot { width:10px; height:10px; border-radius:3px; }
+
+/* Status */
+.status-box {
+  background:var(--card); border:1px solid var(--border);
+  border-left:3px solid var(--active);
+  border-radius:12px; padding:14px 20px;
+  font-size:0.85rem; line-height:1.8; min-height:52px;
+}
+.hl  { color:var(--active);  font-weight:700; }
+.or  { color:var(--pivot);   font-weight:700; }
+.gr  { color:var(--sorted);  font-weight:700; }
+.bl  { color:var(--left);    font-weight:700; }
+.cy  { color:var(--right);   font-weight:700; }
+.rd  { color:var(--swap);    font-weight:700; }
+
+/* Stats */
+.stats { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; }
+.stat {
+  background:var(--card); border:1px solid var(--border);
+  border-radius:8px; padding:9px 18px; text-align:center;
+}
+.stat b { display:block; font-size:1.1rem; font-family:'JetBrains Mono',monospace; }
+.stat span { font-size:0.65rem; color:var(--muted); text-transform:uppercase; letter-spacing:1px; }
+
+/* Call Stack */
+.stack-area {
+  display:flex; flex-wrap:wrap; gap:8px; min-height:36px; align-items:center;
+}
+.stack-chip {
+  background:rgba(108,99,255,0.15); border:1px solid rgba(108,99,255,0.3);
+  color:var(--left); border-radius:6px; padding:4px 12px;
+  font-family:'JetBrains Mono',monospace; font-size:0.72rem; font-weight:700;
+  transition:all 0.3s;
+}
+.stack-chip.active-call {
+  background:rgba(255,107,53,0.2); border-color:var(--pivot); color:var(--pivot);
+}
+
+/* Controls */
+.controls { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; }
+button {
+  font-family:'Outfit',sans-serif; font-size:0.8rem; font-weight:600;
+  padding:10px 22px; border-radius:8px; border:1.5px solid; cursor:pointer; transition:all 0.2s;
+}
+.btn-p { background:var(--pivot); color:#fff; border-color:var(--pivot); }
+.btn-p:hover { box-shadow:0 0 18px rgba(255,107,53,0.5); transform:translateY(-1px); }
+.btn-p:disabled { opacity:0.3; cursor:not-allowed; transform:none; box-shadow:none; }
+.btn-s { background:transparent; color:var(--text); border-color:var(--border); }
+.btn-s:hover { border-color:var(--pivot); color:var(--pivot); }
+.btn-d { background:transparent; color:var(--swap); border-color:var(--swap); }
+.btn-d:hover { background:var(--swap); color:#fff; }
+
+.speed-row {
+  display:flex; align-items:center; gap:12px; justify-content:center;
+  font-size:0.68rem; color:var(--muted); text-transform:uppercase; letter-spacing:1px;
+}
+input[type=range] {
+  -webkit-appearance:none; width:130px; height:3px;
+  background:var(--border); border-radius:2px; outline:none;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance:none; width:13px; height:13px;
+  border-radius:50%; background:var(--pivot); cursor:pointer;
+}
+
+/* Pseudocode */
+.code-line {
+  display:block; font-family:'JetBrains Mono',monospace;
+  font-size:0.74rem; line-height:2.1; padding:1px 8px;
+  border-radius:4px; color:var(--muted); transition:all 0.2s;
+}
+.code-line.active { background:rgba(255,107,53,0.13); color:var(--pivot); font-weight:700; }
+.kw { color:#c792ea; }
+.fn { color:var(--sorted); }
+.cm { color:#3a3d55; font-style:italic; }
+.nm { color:var(--active); }
+
+/* Complexity */
+.cx-row { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; }
+.cx {
+  background:var(--card); border:1px solid var(--border);
+  border-radius:8px; padding:10px 18px; text-align:center;
+}
+.cx .val { font-family:'JetBrains Mono',monospace; font-size:0.95rem; font-weight:700; }
+.cx .lbl { font-size:0.63rem; color:var(--muted); letter-spacing:1px; text-transform:uppercase; margin-top:3px; }
+.good { color:var(--sorted); }
+.warn { color:var(--active); }
+.bad  { color:var(--swap); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Quick Sort</h1>
+  <p>Divide & Conquer · Pivot-Based Sorting</p>
+</header>
+
+<div class="wrap">
+
+  <!-- How it works -->
+  <div class="card">
+    <div class="card-label">How Quick Sort Works</div>
+    <div class="how-grid">
+      <div class="how-step">
+        <div class="num" style="color:var(--pivot)">1.</div>
+        <p><b>Choose a Pivot</b><br>Pick one element as the pivot (last element in this demo).</p>
+      </div>
+      <div class="how-step">
+        <div class="num" style="color:var(--left)">2.</div>
+        <p><b>Partition</b><br>Move elements <b>smaller than pivot</b> to left, <b>larger</b> to right.</p>
+      </div>
+      <div class="how-step">
+        <div class="num" style="color:var(--right)">3.</div>
+        <p><b>Place Pivot</b><br>Pivot lands at its <b>final sorted position</b> after partitioning.</p>
+      </div>
+      <div class="how-step">
+        <div class="num" style="color:var(--sorted)">4.</div>
+        <p><b>Recurse</b><br><b>Repeat</b> on left and right sub-arrays until everything is sorted.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Visualization -->
+  <div class="card">
+    <div class="card-label" id="viz-label">Array Visualization</div>
+    <div class="bars-area" id="bars"></div>
+    <div class="legend">
+      <div class="leg"><div class="dot" style="background:var(--pivot)"></div>Pivot</div>
+      <div class="leg"><div class="dot" style="background:var(--left)"></div>≤ Pivot (Left Zone)</div>
+      <div class="leg"><div class="dot" style="background:var(--right)"></div>> Pivot (Right Zone)</div>
+      <div class="leg"><div class="dot" style="background:var(--swap)"></div>Swapping</div>
+      <div class="leg"><div class="dot" style="background:var(--sorted)"></div>Sorted</div>
+    </div>
+  </div>
+
+  <!-- Status -->
+  <div class="status-box" id="status">Press <b>Play</b> or <b>Step</b> to begin. Watch how the pivot divides the array!</div>
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat"><b id="s-cmp" style="color:var(--active)">0</b><span>Comparisons</span></div>
+    <div class="stat"><b id="s-swp" style="color:var(--swap)">0</b><span>Swaps</span></div>
+    <div class="stat"><b id="s-calls" style="color:var(--left)">0</b><span>Recursions</span></div>
+    <div class="stat"><b id="s-pass" style="color:var(--pivot)">—</b><span>Current Pass</span></div>
+  </div>
+
+  <!-- Call Stack -->
+  <div class="card">
+    <div class="card-label">Recursion Call Stack</div>
+    <div class="stack-area" id="call-stack"><span style="color:var(--muted);font-size:0.78rem">No active calls yet...</span></div>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <button class="btn-s" onclick="newArray()">New Array</button>
+    <button class="btn-p" id="btn-step" onclick="stepOnce()">Step ▶</button>
+    <button class="btn-p" id="btn-play" onclick="togglePlay()">Play ▶▶</button>
+    <button class="btn-d" onclick="resetViz()">Reset ↺</button>
+  </div>
+  <div class="speed-row">
+    Slow <input type="range" id="speed" min="150" max="1200" value="700"> Fast
+  </div>
+
+  <!-- Pseudocode -->
+  <div class="card">
+    <div class="card-label">Pseudocode</div>
+    <span class="code-line" id="l0"><span class="kw">function</span> <span class="fn">quickSort</span>(arr, low, high):</span>
+    <span class="code-line" id="l1">    <span class="kw">if</span> low &lt; high:                    <span class="cm">// base case</span></span>
+    <span class="code-line" id="l2">        pi = <span class="fn">partition</span>(arr, low, high)  <span class="cm">// pivot index</span></span>
+    <span class="code-line" id="l3">        <span class="fn">quickSort</span>(arr, low, pi<span class="nm">-1</span>)       <span class="cm">// left sub-array</span></span>
+    <span class="code-line" id="l4">        <span class="fn">quickSort</span>(arr, pi<span class="nm">+1</span>, high)      <span class="cm">// right sub-array</span></span>
+    <span class="code-line" id="l5">&nbsp;</span>
+    <span class="code-line" id="l6"><span class="kw">function</span> <span class="fn">partition</span>(arr, low, high):</span>
+    <span class="code-line" id="l7">    pivot = arr[high]               <span class="cm">// last element as pivot</span></span>
+    <span class="code-line" id="l8">    i = low <span class="nm">- 1</span>                    <span class="cm">// boundary pointer</span></span>
+    <span class="code-line" id="l9">    <span class="kw">for</span> j = low <span class="kw">to</span> high<span class="nm">-1</span>:</span>
+    <span class="code-line" id="l10">        <span class="kw">if</span> arr[j] &lt;= pivot:         <span class="cm">// goes to left zone?</span></span>
+    <span class="code-line" id="l11">            i++</span>
+    <span class="code-line" id="l12">            swap(arr[i], arr[j])    <span class="cm">// move to left zone</span></span>
+    <span class="code-line" id="l13">    swap(arr[i<span class="nm">+1</span>], arr[high])      <span class="cm">// place pivot correctly</span></span>
+    <span class="code-line" id="l14">    <span class="kw">return</span> i<span class="nm">+1</span>                     <span class="cm">// pivot's final position</span></span>
+  </div>
+
+  <!-- Complexity -->
+  <div class="card">
+    <div class="card-label">Time & Space Complexity</div>
+    <div class="cx-row">
+      <div class="cx"><div class="val good">O(n log n)</div><div class="lbl">Best Case</div></div>
+      <div class="cx"><div class="val good">O(n log n)</div><div class="lbl">Average Case</div></div>
+      <div class="cx"><div class="val bad">O(n²)</div><div class="lbl">Worst Case</div></div>
+      <div class="cx"><div class="val warn">O(log n)</div><div class="lbl">Space (stack)</div></div>
+    </div>
+    <p style="font-size:0.78rem;color:var(--muted);margin-top:14px;line-height:1.8;">
+      ⚠️ <b style="color:var(--text)">Worst case O(n²)</b> happens when the pivot is always the smallest or largest element (already sorted array with last-element pivot). 
+      Randomized pivot selection avoids this in practice.<br>
+      ✅ <b style="color:var(--sorted)">In practice</b>, Quick Sort is one of the fastest sorting algorithms due to excellent cache performance.
+    </p>
+  </div>
+
+</div>
+
+<script>
+let arr = [], steps = [], stepIdx = 0, playing = false, timer = null;
+let cmps = 0, swps = 0, calls = 0;
+
+function randArr() {
+  const vals = [], used = new Set();
+  while (vals.length < 9) {
+    const v = Math.floor(Math.random() * 60) + 5;
+    if (!used.has(v)) { used.add(v); vals.push(v); }
+  }
+  return vals;
+}
+
+// Build all steps by simulating quicksort
+function buildSteps(input) {
+  const a = [...input];
+  const s = [];
+  const n = a.length;
+  const sortedSet = new Set();
+  let cmpCount = 0, swpCount = 0, callCount = 0;
+
+  function push(cellStates, msg, line, callStack, cmp, swp) {
+    if (cmp) cmpCount++;
+    if (swp) swpCount++;
+    s.push({
+      arr: [...a],
+      cellStates: [...cellStates],
+      msg, line,
+      callStack: [...callStack],
+      cmps: cmpCount, swps: swpCount, calls: callCount
+    });
+  }
+
+  function makeStates(low, high, pivotIdx, leftZone, rightZone, swapIdxs) {
+    const cs = new Array(n).fill('unsorted');
+    sortedSet.forEach(i => cs[i] = 'sorted');
+    for (let x = low; x <= high; x++) cs[x] = 'subarray';
+    leftZone.forEach(i => cs[i] = 'lzone');
+    rightZone.forEach(i => cs[i] = 'rzone');
+    if (pivotIdx !== -1) cs[pivotIdx] = 'pivot';
+    swapIdxs.forEach(i => cs[i] = 'swapping');
+    return cs;
+  }
+
+  function partition(low, high, callStack) {
+    const pivot = a[high];
+
+    // Pick pivot
+    push(makeStates(low, high, high, [], [], []), 
+      `<span class="or">Partition</span> subarray [${low}..${high}]. Pivot = <span class="or">${pivot}</span> at index [${high}]. Will scan left → right.`,
+      7, callStack, false, false);
+
+    let i = low - 1;
+    const leftZ = [], rightZ = [];
+
+    push(makeStates(low, high, high, leftZ, rightZ, []),
+      `Set boundary pointer <span class="hl">i = ${i}</span>. Will scan j from [${low}] to [${high-1}].`,
+      8, callStack, false, false);
+
+    for (let j = low; j < high; j++) {
+      // Compare
+      push(makeStates(low, high, high, [...leftZ], [...rightZ], [j]),
+        `Compare arr[${j}] = <span class="hl">${a[j]}</span> with pivot <span class="or">${pivot}</span>: ${a[j]} ${a[j] <= pivot ? '≤' : '>'} ${pivot}`,
+        10, callStack, true, false);
+
+      if (a[j] <= pivot) {
+        i++;
+        [a[i], a[j]] = [a[j], a[i]];
+        leftZ.push(i);
+        if (j !== i) {
+          push(makeStates(low, high, high, [...leftZ], [...rightZ], [i, j]),
+            `<span class="hl">${a[i]}</span> ≤ pivot → <span class="rd">Swap</span> arr[${i}] and arr[${j}]. Move to left zone. i = ${i}`,
+            12, callStack, false, true);
+        } else {
+          push(makeStates(low, high, high, [...leftZ], [...rightZ], []),
+            `<span class="hl">${a[i]}</span> ≤ pivot → already in position. i = ${i}`,
+            11, callStack, false, false);
+        }
+      } else {
+        rightZ.push(j);
+        push(makeStates(low, high, high, [...leftZ], [...rightZ], []),
+          `<span class="cy">${a[j]}</span> > pivot → stays in <span class="cy">right zone</span>.`,
+          10, callStack, false, false);
+      }
+    }
+
+    // Place pivot
+    [a[i+1], a[high]] = [a[high], a[i+1]];
+    swpCount++;
+    sortedSet.add(i+1);
+    const finalCs = makeStates(low, high, i+1, [], [], []);
+    finalCs[i+1] = 'sorted';
+    push(finalCs,
+      `<span class="rd">Place pivot</span> <span class="or">${a[i+1]}</span> at index [${i+1}] — its <span class="gr">final position</span>! Left: [${low}..${i}], Right: [${i+2}..${high}]`,
+      13, callStack, false, false);
+
+    return i + 1;
+  }
+
+  function quickSort(low, high, callStack) {
+    if (low >= high) {
+      if (low === high) sortedSet.add(low);
+      return;
+    }
+    callCount++;
+    const myCall = `qs(${low},${high})`;
+    const newStack = [...callStack, myCall];
+
+    push(makeStates(low, high, -1, [], [], []),
+      `<span class="bl">quickSort</span> called on subarray [${low}..${high}] → size ${high-low+1}. Recursion depth: ${newStack.length}`,
+      1, newStack, false, false);
+
+    const pi = partition(low, high, newStack);
+
+    push(makeStates(low, high, pi, [], [], []),
+      `Pivot placed at [${pi}]. Now recurse on <span class="bl">left</span> [${low}..${pi-1}] and <span class="cy">right</span> [${pi+1}..${high}].`,
+      2, newStack, false, false);
+
+    quickSort(low, pi - 1, newStack);
+    quickSort(pi + 1, high, newStack);
+  }
+
+  // Initial state
+  s.push({
+    arr: [...a],
+    cellStates: new Array(n).fill('unsorted'),
+    msg: `Array has <span class="hl">${n}</span> elements. Quick Sort will pick a <span class="or">pivot</span>, partition, and recurse on sub-arrays.`,
+    line: 0,
+    callStack: [],
+    cmps: 0, swps: 0, calls: 0
+  });
+
+  quickSort(0, n - 1, []);
+
+  // Final
+  s.push({
+    arr: [...a],
+    cellStates: new Array(n).fill('sorted'),
+    msg: `<span class="gr">✅ Sorting Complete!</span> Array sorted in <span class="hl">${cmpCount}</span> comparisons and <span class="rd">${swpCount}</span> swaps.`,
+    line: -1,
+    callStack: [],
+    cmps: cmpCount, swps: swpCount, calls: callCount,
+    done: true
+  });
+
+  return s;
+}
+
+function renderStep(step) {
+  const bars = document.getElementById('bars');
+  bars.innerHTML = '';
+  const maxV = Math.max(...step.arr);
+
+  step.arr.forEach((v, i) => {
+    const w = document.createElement('div');
+    w.className = 'bar-wrap';
+    const bar = document.createElement('div');
+    bar.className = `bar ${step.cellStates[i]}`;
+    bar.style.height = `${Math.round((v/maxV)*170)+12}px`;
+    const val = document.createElement('div');
+    val.className = 'bar-val';
+    val.style.color = getValColor(step.cellStates[i]);
+    val.textContent = v;
+    const idx = document.createElement('div');
+    idx.className = 'bar-idx';
+    idx.textContent = `[${i}]`;
+    w.appendChild(val); w.appendChild(bar); w.appendChild(idx);
+    bars.appendChild(w);
+  });
+
+  document.getElementById('status').innerHTML = step.msg;
+  document.getElementById('s-cmp').textContent = step.cmps;
+  document.getElementById('s-swp').textContent = step.swps;
+  document.getElementById('s-calls').textContent = step.calls;
+  document.getElementById('s-pass').textContent = step.callStack.length || '—';
+
+  // Call stack
+  const cs = document.getElementById('call-stack');
+  if (step.callStack.length === 0) {
+    cs.innerHTML = `<span style="color:var(--muted);font-size:0.78rem">${step.done ? 'All done!' : 'No active calls yet...'}</span>`;
+  } else {
+    cs.innerHTML = step.callStack.map((c, i) => 
+      `<span class="stack-chip ${i === step.callStack.length-1 ? 'active-call' : ''}">${c}</span>`
+    ).join('');
+  }
+
+  // Pseudocode
+  for (let i = 0; i <= 14; i++) {
+    const el = document.getElementById(`l${i}`);
+    if (el) el.classList.toggle('active', i === step.line);
+  }
+
+  if (step.done) {
+    stopPlay();
+    document.getElementById('btn-play').textContent = 'Done ✓';
+    document.getElementById('btn-play').disabled = true;
+    document.getElementById('btn-step').disabled = true;
+  }
+}
+
+function getValColor(state) {
+  const map = {
+    pivot:'var(--pivot)', lzone:'var(--left)', rzone:'var(--right)',
+    swapping:'var(--swap)', sorted:'var(--sorted)', subarray:'var(--active)',
+    unsorted:'var(--text)'
+  };
+  return map[state] || 'var(--text)';
+}
+
+function stepOnce() {
+  if (stepIdx < steps.length) renderStep(steps[stepIdx++]);
+}
+
+function togglePlay() {
+  playing ? stopPlay() : startPlay();
+}
+
+function startPlay() {
+  playing = true;
+  document.getElementById('btn-play').textContent = 'Pause ⏸';
+  tick();
+}
+
+function stopPlay() {
+  playing = false;
+  clearTimeout(timer);
+  const b = document.getElementById('btn-play');
+  if (b.textContent !== 'Done ✓') b.textContent = 'Play ▶▶';
+}
+
+function tick() {
+  if (!playing || stepIdx >= steps.length) { stopPlay(); return; }
+  renderStep(steps[stepIdx++]);
+  const delay = 1400 - parseInt(document.getElementById('speed').value);
+  timer = setTimeout(tick, delay);
+}
+
+function resetViz() {
+  stopPlay(); stepIdx = 0;
+  document.getElementById('btn-play').textContent = 'Play ▶▶';
+  document.getElementById('btn-play').disabled = false;
+  document.getElementById('btn-step').disabled = false;
+  document.querySelectorAll('.code-line').forEach(e => e.classList.remove('active'));
+  document.getElementById('s-cmp').textContent = 0;
+  document.getElementById('s-swp').textContent = 0;
+  document.getElementById('s-calls').textContent = 0;
+  document.getElementById('s-pass').textContent = '—';
+  renderStep(steps[0]);
+}
+
+function newArray() {
+  arr = randArr();
+  steps = buildSteps(arr);
+  resetViz();
+}
+
+newArray();
+</script>
+</body>
+</html>
